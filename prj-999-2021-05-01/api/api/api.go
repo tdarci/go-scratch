@@ -42,12 +42,18 @@ type API struct {
 	*config.Config
 	engine *engine.Engine
 	router *mux.Router
+	poller *QuakePoller
 }
 
 func NewAPI(cfg *config.Config) *API {
 
-	a := &API{Config: cfg, engine: engine.NewEngine(cfg)}
+	a := &API{
+		Config: cfg,
+		engine: engine.NewEngine(cfg),
+		poller: NewQuakePoller(cfg),
+	}
 	r := mux.NewRouter()
+
 	r.HandleFunc("/time", a.timeHandler).Methods(http.MethodGet)
 	r.HandleFunc("/add", a.mathHandler).Methods(http.MethodGet).Queries("a", "{a:[0-9]*}", "b", "{b:[0-9]*}")
 	r.HandleFunc("/dog/{id}", a.getDogHandler).Methods(http.MethodGet)
@@ -63,6 +69,8 @@ func NewAPI(cfg *config.Config) *API {
 
 func (a *API) Run(apiPort int) error {
 	fmt.Printf("starting server on port %d\n", apiPort)
+
+	a.poller.Run(time.Second * 3)
 
 	srv := http.Server{
 		Addr:         "127.0.0.1:" + strconv.Itoa(apiPort),
