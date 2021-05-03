@@ -7,11 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/tdarci/prj-999/models"
-
 	"github.com/gorilla/mux"
 	"github.com/tdarci/prj-999/config"
 	"github.com/tdarci/prj-999/engine"
+	"github.com/tdarci/prj-999/models"
 )
 
 // vvv Public API vvv
