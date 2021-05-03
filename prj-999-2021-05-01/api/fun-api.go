@@ -4,15 +4,20 @@ import (
 	"log"
 
 	"github.com/tdarci/prj-999/api/api"
+	"github.com/tdarci/prj-999/config"
 )
 
 const apiPort = 8181
 
 func main() {
-	s := api.NewAPI()
-	err := s.Run(apiPort)
+	cfg, err := config.NewLocal()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Error creating config: %s", err)
 	}
-	log.Println("Server shut down.")
+	s := api.NewAPI(cfg)
+	err = s.Run(apiPort)
+	if err != nil {
+		cfg.Logger().Fatal(err)
+	}
+	cfg.Logger().Println("Server shut down.")
 }
