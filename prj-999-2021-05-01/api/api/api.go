@@ -41,20 +41,38 @@ func NewAPI() *API {
 	r := mux.NewRouter()
 	r.HandleFunc("/time", a.timeHandler).Methods(http.MethodGet)
 	r.HandleFunc("/add", a.mathHandler).Methods(http.MethodGet).Queries("a", "{a:[0-9]*}", "b", "{b:[0-9]*}")
+
+	sph := StaticPathHandler{
+		StaticPath: "web",
+		IndexPath:  "index.html",
+	}
+	r.PathPrefix("/").Handler(sph)
+
 	r.Use(logMiddleware)
+
 	a.router = r
 	return a
 }
 
 func (a *API) Run(apiPort int) error {
-	http.Handle("/", a.router)
 	fmt.Printf("starting server on port %d\n", apiPort)
-	return http.ListenAndServe(":"+strconv.Itoa(apiPort), nil)
+
+	srv := http.Server{
+		Addr:         "127.0.0.1:" + strconv.Itoa(apiPort),
+		Handler:      a.router,
+		TLSConfig:    nil,
+		ReadTimeout:  time.Second * 10,
+		WriteTimeout: time.Second * 10,
+	}
+
+	return srv.ListenAndServe()
+
+	//return http.ListenAndServe(":"+strconv.Itoa(apiPort), a.router)
 }
 
 func logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println(r.RequestURI)
+		log.Println("REQUESTED: ", r.RequestURI)
 		next.ServeHTTP(w, r)
 	})
 }
