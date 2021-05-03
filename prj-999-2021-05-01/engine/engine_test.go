@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tdarci/prj-999/config"
 )
 
 func TestAdd(t *testing.T) {
@@ -52,7 +54,9 @@ func TestAdd(t *testing.T) {
 		},
 	}
 
-	eng := NewEngine()
+	cfg, err := config.NewLocal()
+	require.NoError(t, err, "config must be created")
+	eng := NewEngine(cfg)
 
 	for _, tt := range tests {
 		t.Run(tt.Message, func(t *testing.T) {

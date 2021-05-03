@@ -3,12 +3,14 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/tdarci/prj-999/models"
+
 	"github.com/gorilla/mux"
+	"github.com/tdarci/prj-999/config"
 	"github.com/tdarci/prj-999/engine"
 )
 
@@ -28,27 +30,33 @@ type MathResponse struct {
 	Error    string `json:"error,omitempty"`
 }
 
+// DogResponse is returned to requests at GET /dog/{id}
+type DogResponse struct {
+	Dog   *models.Dog `json:"dog,omitempty"`
+	Error string      `json:"error,omitempty"`
+}
+
 // ^^^ API ^^^
 // ---------------------------------------------------
 
 type API struct {
+	*config.Config
 	engine *engine.Engine
 	router *mux.Router
 }
 
-func NewAPI() *API {
-	a := &API{engine: engine.NewEngine()}
+func NewAPI(cfg *config.Config) *API {
+
+	a := &API{Config: cfg, engine: engine.NewEngine(cfg)}
 	r := mux.NewRouter()
 	r.HandleFunc("/time", a.timeHandler).Methods(http.MethodGet)
 	r.HandleFunc("/add", a.mathHandler).Methods(http.MethodGet).Queries("a", "{a:[0-9]*}", "b", "{b:[0-9]*}")
+	r.HandleFunc("/dog/{id}", a.getDogHandler).Methods(http.MethodGet)
 
-	sph := StaticPathHandler{
-		StaticPath: "web",
-		IndexPath:  "index.html",
-	}
+	sph := NewStaticPathHandler(cfg, "web", "index.html")
 	r.PathPrefix("/").Handler(sph)
 
-	r.Use(logMiddleware)
+	r.Use(a.logMiddleware)
 
 	a.router = r
 	return a
@@ -70,9 +78,9 @@ func (a *API) Run(apiPort int) error {
 	//return http.ListenAndServe(":"+strconv.Itoa(apiPort), a.router)
 }
 
-func logMiddleware(next http.Handler) http.Handler {
+func (a *API) logMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Println("REQUESTED: ", r.RequestURI)
+		a.Logger().Println("REQUESTED: ", r.RequestURI)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -90,6 +98,42 @@ func (a *API) timeHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}
 	w.Write(rspBytes)
+}
+
+func (a *API) getDogHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	if idVal, ok := vars["id"]; ok {
+		id, err := strconv.Atoi(idVal)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			errRsp := DogResponse{Error: err.Error()}
+			errRespBytes, _ := json.Marshal(errRsp)
+			w.Write(errRespBytes)
+			return
+		}
+
+		dog, err := a.engine.GetDog(r.Context(), id)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			errRsp := DogResponse{Error: err.Error()}
+			errRespBytes, _ := json.Marshal(errRsp)
+			w.Write(errRespBytes)
+			return
+		}
+
+		rsp := DogResponse{Dog: dog}
+		rspBytes, rspErr := json.Marshal(rsp)
+		if rspErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			errRsp := DogResponse{Error: rspErr.Error()}
+			errRespBytes, _ := json.Marshal(errRsp)
+			w.Write(errRespBytes)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(rspBytes)
+	}
 }
 
 func (a *API) mathHandler(w http.ResponseWriter, r *http.Request) {
